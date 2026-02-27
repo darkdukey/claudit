@@ -66,9 +66,10 @@ router.post('/new', (req, res) => {
     }
 
     // Run claude with a minimal prompt to create a session
+    const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'CLAUDECODE'));
     const result = execSync(
       'claude -p --output-format json --max-turns 1 "hello"',
-      { cwd: actualProjectPath, encoding: 'utf-8', timeout: 30_000 },
+      { cwd: actualProjectPath, encoding: 'utf-8', timeout: 30_000, env: cleanEnv },
     );
 
     // Parse the JSON result to get the session ID

@@ -43,7 +43,7 @@ function executeTask(taskId: string) {
   const child = spawn('claude', args, {
     stdio: ['pipe', 'pipe', 'pipe'],
     cwd: task.projectPath || undefined,
-    env: { ...process.env },
+    env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'CLAUDECODE')),
   });
 
   let output = '';
