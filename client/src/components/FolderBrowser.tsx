@@ -29,6 +29,7 @@ export default function FolderBrowser({ onPathChange }: Props) {
       setEntries(data.entries);
       setPathInput(data.currentPath);
       onPathChangeRef.current(data.currentPath, data.isGitRepo);
+      try { localStorage.setItem('claudit:lastBrowserPath', data.currentPath); } catch {}
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -37,7 +38,8 @@ export default function FolderBrowser({ onPathChange }: Props) {
   }, []);
 
   useEffect(() => {
-    loadDir();
+    const saved = (() => { try { return localStorage.getItem('claudit:lastBrowserPath'); } catch { return null; } })();
+    loadDir(saved || undefined);
   }, [loadDir]);
 
   const handleGo = () => {

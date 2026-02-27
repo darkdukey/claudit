@@ -70,6 +70,7 @@ export async function syncProvider(config: TodoProviderConfig): Promise<Provider
             completed: ext.completed,
             completedAt: ext.completed ? new Date().toISOString() : undefined,
             priority: ext.priority,
+            position: 0,
             provider: {
               providerId: config.providerId,
               configId: config.id,

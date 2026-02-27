@@ -15,6 +15,7 @@ const db = new Database(DB_PATH);
 // Enable WAL mode for concurrent read/write (MCP + Web server)
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('busy_timeout = 5000');
 
 // --- Schema ---
 
@@ -81,7 +82,25 @@ db.exec(`
     pinned      INTEGER NOT NULL DEFAULT 0,
     createdAt   TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS todo_groups (
+    id        TEXT PRIMARY KEY,
+    name      TEXT NOT NULL,
+    position  INTEGER NOT NULL DEFAULT 0,
+    createdAt TEXT NOT NULL
+  );
 `);
+
+// Idempotent ALTER TABLE helper: only swallow "duplicate column" errors
+function addColumnIfNotExists(sql: string) {
+  try { db.exec(sql); } catch (e: any) {
+    if (!e.message?.includes('duplicate column')) throw e;
+  }
+}
+
+addColumnIfNotExists('ALTER TABLE todos ADD COLUMN groupId TEXT REFERENCES todo_groups(id) ON DELETE SET NULL');
+addColumnIfNotExists('ALTER TABLE todos ADD COLUMN position INTEGER NOT NULL DEFAULT 0');
+addColumnIfNotExists('ALTER TABLE cron_executions ADD COLUMN sessionId TEXT');
 
 export { db };
 export function closeDb() {

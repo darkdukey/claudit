@@ -5,6 +5,7 @@ import {
   createTodo,
   updateTodo,
   deleteTodo,
+  reorderTodos,
 } from '../services/todoStorage.js';
 import { pushCompletion } from '../services/todoSyncEngine.js';
 
@@ -23,7 +24,7 @@ router.get('/', (_req, res) => {
 // POST /api/todo — create todo
 router.post('/', (req, res) => {
   try {
-    const { title, description, priority, sessionId, sessionLabel } = req.body;
+    const { title, description, priority, sessionId, sessionLabel, groupId } = req.body;
     if (!title) {
       res.status(400).json({ error: 'title is required' });
       return;
@@ -35,11 +36,29 @@ router.post('/', (req, res) => {
       priority: priority ?? 'medium',
       sessionId,
       sessionLabel,
+      groupId,
+      position: 0, // will be auto-computed by createTodo
     });
     res.status(201).json(todo);
   } catch (err) {
     console.error('Error creating todo:', err);
     res.status(500).json({ error: 'Failed to create todo' });
+  }
+});
+
+// PUT /api/todo/reorder — batch reorder todos
+router.put('/reorder', (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      res.status(400).json({ error: 'items array is required' });
+      return;
+    }
+    reorderTodos(items);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error reordering todos:', err);
+    res.status(500).json({ error: 'Failed to reorder todos' });
   }
 });
 

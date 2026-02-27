@@ -1,5 +1,5 @@
 import cron, { ScheduledTask } from 'node-cron';
-import { spawn } from 'child_process';
+import { spawn, execFile } from 'child_process';
 import {
   getAllTasks,
   getTask,
@@ -8,8 +8,11 @@ import {
   updateExecution,
 } from './cronStorage.js';
 import { getAllTodos } from './todoStorage.js';
+import { addManagedSession, renameManagedSession } from './managedSessions.js';
+import { invalidateSessionCache } from './historyIndex.js';
 
 const scheduledJobs = new Map<string, ScheduledTask>();
+const MAX_OUTPUT_SIZE = 512 * 1024; // 512 KB limit per stream
 
 const PRIORITY_ICON: Record<string, string> = { high: '🔴', medium: '🟡', low: '🟢' };
 
@@ -30,35 +33,83 @@ function resolvePrompt(prompt: string): string {
   return prompt.replace(/\{\{todos\}\}/g, formatTodosForPrompt());
 }
 
-function executeTask(taskId: string) {
+function appendCapped(current: string, chunk: string): string {
+  if (current.length >= MAX_OUTPUT_SIZE) return current;
+  const remaining = MAX_OUTPUT_SIZE - current.length;
+  return current + (chunk.length <= remaining ? chunk : chunk.slice(0, remaining) + '\n[output truncated]');
+}
+
+function createSessionAsync(
+  taskName: string, cwd: string | undefined, env: NodeJS.ProcessEnv,
+): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    const initPrompt = `Workflow task: ${taskName} — starting execution.`;
+    const child = execFile(
+      'claude',
+      ['-p', '--output-format', 'json', '--max-turns', '1'],
+      { cwd, encoding: 'utf-8', timeout: 60_000, env },
+      (err, stdout) => {
+        if (err) {
+          console.warn(`[cron] Failed to create session for task ${taskName}, falling back:`, err.message);
+          resolve(undefined);
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout);
+          resolve(parsed.session_id || undefined);
+        } catch {
+          resolve(undefined);
+        }
+      },
+    );
+    child.stdin?.write(initPrompt);
+    child.stdin?.end();
+  });
+}
+
+async function executeTask(taskId: string) {
   const task = getTask(taskId);
   if (!task) return;
 
   console.log(`[cron] Executing task: ${task.name} (${taskId})`);
 
-  const exec = createExecution(taskId);
+  const resolvedPrompt = resolvePrompt(task.prompt);
+  const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'CLAUDECODE'));
+  const cwd = task.projectPath || undefined;
 
-  const args = ['-p', '--output-format', 'text', '--dangerously-skip-permissions'];
+  // Step 1: Create a session asynchronously (non-blocking)
+  const sessionId = await createSessionAsync(task.name, cwd, cleanEnv);
+  if (sessionId) {
+    addManagedSession(sessionId, task.projectPath || '');
+    renameManagedSession(sessionId, `Workflow: ${task.name}`);
+    invalidateSessionCache();
+    console.log(`[cron] Created session ${sessionId} for task ${task.name}`);
+  }
+
+  const exec = createExecution(taskId, sessionId);
+
+  // Step 2: Execute the full prompt (resume session if available)
+  const args = sessionId
+    ? ['--session-id', sessionId, '--resume', '-p', '--output-format', 'text', '--dangerously-skip-permissions']
+    : ['-p', '--output-format', 'text', '--dangerously-skip-permissions'];
 
   const child = spawn('claude', args, {
     stdio: ['pipe', 'pipe', 'pipe'],
-    cwd: task.projectPath || undefined,
-    env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'CLAUDECODE')),
+    cwd,
+    env: cleanEnv,
   });
 
   let output = '';
   let errorOutput = '';
 
   child.stdout.on('data', (data: Buffer) => {
-    output += data.toString();
+    output = appendCapped(output, data.toString());
   });
 
   child.stderr.on('data', (data: Buffer) => {
-    errorOutput += data.toString();
+    errorOutput = appendCapped(errorOutput, data.toString());
   });
 
-  // Resolve template variables and write prompt to stdin
-  const resolvedPrompt = resolvePrompt(task.prompt);
   child.stdin.write(resolvedPrompt);
   child.stdin.end();
 

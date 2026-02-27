@@ -22,12 +22,15 @@ server.tool(
   {
     status: z.enum(['pending', 'completed', 'all']).optional().describe('Filter by completion status. Default: all'),
     priority: z.enum(['low', 'medium', 'high']).optional().describe('Filter by priority level'),
+    groupId: z.string().optional().describe('Filter by group ID. Use "ungrouped" for todos without a group.'),
   },
-  async ({ status, priority }) => {
+  async ({ status, priority, groupId }) => {
     let todos = getAllTodos();
     if (status === 'pending') todos = todos.filter(t => !t.completed);
     else if (status === 'completed') todos = todos.filter(t => t.completed);
     if (priority) todos = todos.filter(t => t.priority === priority);
+    if (groupId === 'ungrouped') todos = todos.filter(t => !t.groupId);
+    else if (groupId) todos = todos.filter(t => t.groupId === groupId);
 
     const summary = todos.map(t => ({
       id: t.id,
@@ -35,6 +38,8 @@ server.tool(
       description: t.description,
       completed: t.completed,
       priority: t.priority,
+      groupId: t.groupId,
+      position: t.position,
       createdAt: t.createdAt,
       completedAt: t.completedAt,
       sessionId: t.sessionId,
@@ -83,8 +88,9 @@ server.tool(
     priority: z.enum(['low', 'medium', 'high']).optional().describe('Priority level. Default: medium'),
     sessionId: z.string().optional().describe('Link to a Claude session ID'),
     sessionLabel: z.string().optional().describe('Display label for the linked session'),
+    groupId: z.string().optional().describe('Group ID to assign the todo to'),
   },
-  async ({ title, description, priority, sessionId, sessionLabel }) => {
+  async ({ title, description, priority, sessionId, sessionLabel, groupId }) => {
     const todo = createTodo({
       title,
       description,
@@ -92,6 +98,8 @@ server.tool(
       priority: priority || 'medium',
       sessionId,
       sessionLabel,
+      groupId,
+      position: 0, // auto-computed
     });
     return {
       content: [{ type: 'text' as const, text: `Created todo: ${todo.id}\n${JSON.stringify(todo, null, 2)}` }],
@@ -109,12 +117,14 @@ server.tool(
     description: z.string().optional().describe('New description'),
     completed: z.boolean().optional().describe('Mark as completed (true) or pending (false)'),
     priority: z.enum(['low', 'medium', 'high']).optional().describe('New priority level'),
+    groupId: z.string().nullable().optional().describe('Group ID to move the todo to (null to ungroup)'),
   },
-  async ({ id, title, description, completed, priority }) => {
+  async ({ id, title, description, completed, priority, groupId }) => {
     const updates: Record<string, unknown> = {};
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
     if (priority !== undefined) updates.priority = priority;
+    if (groupId !== undefined) updates.groupId = groupId;
     if (completed !== undefined) {
       updates.completed = completed;
       if (completed) updates.completedAt = new Date().toISOString();

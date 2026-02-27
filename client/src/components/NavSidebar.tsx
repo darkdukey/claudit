@@ -43,11 +43,13 @@ export default function NavSidebar() {
             ? 'bg-blue-600 text-white'
             : 'text-gray-400 hover:text-white hover:bg-gray-800'
         }`}
-        title="Cron Tasks"
+        title="Workflows"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
+          <rect x="3" y="3" width="7" height="5" rx="1" />
+          <rect x="14" y="16" width="7" height="5" rx="1" />
+          <path d="M10 5.5h2a2 2 0 0 1 2 2v7a2 2 0 0 0 2 2h-2" />
+          <polyline points="14 14.5 16 16.5 14 18.5" />
         </svg>
       </button>
     </div>

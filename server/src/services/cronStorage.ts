@@ -13,6 +13,11 @@ const stmtInsertTask = db.prepare(`
   VALUES (@id, @name, @cronExpression, @prompt, @enabled, @projectPath, @lastRun, @nextRun, @createdAt)
 `);
 const stmtDeleteTask = db.prepare('DELETE FROM cron_tasks WHERE id = ?');
+const stmtUpdateTask = db.prepare(`
+  UPDATE cron_tasks SET name = @name, cronExpression = @cronExpression, prompt = @prompt,
+    enabled = @enabled, projectPath = @projectPath, lastRun = @lastRun, nextRun = @nextRun
+  WHERE id = @id
+`);
 
 // --- Prepared statements: Executions ---
 
@@ -20,11 +25,15 @@ const stmtExecsByTask = db.prepare(
   'SELECT * FROM cron_executions WHERE taskId = ? ORDER BY startedAt DESC'
 );
 const stmtInsertExec = db.prepare(`
-  INSERT INTO cron_executions (id, taskId, startedAt, finishedAt, status, output, error)
-  VALUES (@id, @taskId, @startedAt, @finishedAt, @status, @output, @error)
+  INSERT INTO cron_executions (id, taskId, startedAt, finishedAt, status, output, error, sessionId)
+  VALUES (@id, @taskId, @startedAt, @finishedAt, @status, @output, @error, @sessionId)
 `);
 const stmtExecById = db.prepare('SELECT * FROM cron_executions WHERE id = ?');
 const stmtDeleteExec = db.prepare('DELETE FROM cron_executions WHERE id = ?');
+const stmtUpdateExec = db.prepare(`
+  UPDATE cron_executions SET finishedAt = @finishedAt, status = @status, output = @output, error = @error, sessionId = @sessionId
+  WHERE id = @id
+`);
 
 // Trim: keep latest MAX_EXECUTIONS_PER_TASK, delete the rest
 const stmtTrimExecs = db.prepare(`
@@ -74,6 +83,7 @@ function rowToExec(row: any): CronExecution {
   if (row.finishedAt != null) exec.finishedAt = row.finishedAt;
   if (row.output != null) exec.output = row.output;
   if (row.error != null) exec.error = row.error;
+  if (row.sessionId != null) exec.sessionId = row.sessionId;
   return exec;
 }
 
@@ -102,8 +112,7 @@ export function updateTask(id: string, updates: Partial<CronTask>): CronTask | n
   const existing = getTask(id);
   if (!existing) return null;
   const merged: CronTask = { ...existing, ...updates, id };
-  stmtDeleteTask.run(id);
-  stmtInsertTask.run(taskToParams(merged));
+  stmtUpdateTask.run(taskToParams(merged));
   return merged;
 }
 
@@ -119,12 +128,13 @@ export function getTaskExecutions(taskId: string): CronExecution[] {
   return stmtExecsByTask.all(taskId).map(rowToExec);
 }
 
-export function createExecution(taskId: string): CronExecution {
+export function createExecution(taskId: string, sessionId?: string): CronExecution {
   const exec: CronExecution = {
     id: crypto.randomUUID(),
     taskId,
     startedAt: new Date().toISOString(),
     status: 'running',
+    sessionId,
   };
   stmtInsertExec.run({
     id: exec.id,
@@ -134,6 +144,7 @@ export function createExecution(taskId: string): CronExecution {
     status: exec.status,
     output: null,
     error: null,
+    sessionId: sessionId ?? null,
   });
   // Trim old executions
   stmtTrimExecs.run(taskId, taskId, MAX_EXECUTIONS_PER_TASK);
@@ -145,15 +156,13 @@ export function updateExecution(id: string, updates: Partial<CronExecution>): Cr
   if (!row) return null;
   const existing = rowToExec(row);
   const merged: CronExecution = { ...existing, ...updates, id };
-  stmtDeleteExec.run(id);
-  stmtInsertExec.run({
+  stmtUpdateExec.run({
     id: merged.id,
-    taskId: merged.taskId,
-    startedAt: merged.startedAt,
     finishedAt: merged.finishedAt ?? null,
     status: merged.status,
     output: merged.output ?? null,
     error: merged.error ?? null,
+    sessionId: merged.sessionId ?? null,
   });
   return merged;
 }

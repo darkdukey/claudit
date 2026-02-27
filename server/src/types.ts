@@ -7,6 +7,7 @@ export type {
   SessionDetail,
   CronTask,
   CronExecution,
+  TodoGroup,
   TodoItem,
   TodoProviderOrigin,
   TodoProviderConfig,

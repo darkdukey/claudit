@@ -1,4 +1,5 @@
 import { CronTask } from '../../types';
+import { StatusBadge } from '../StatusDot';
 
 interface Props {
   task: CronTask;
@@ -27,11 +28,7 @@ export default function CronTaskItem({ task, selected, onSelect }: Props) {
     >
       <div className="flex items-center justify-between mb-1">
         <span className="text-sm font-medium text-gray-200 truncate">{task.name}</span>
-        <span className={`text-xs px-1.5 py-0.5 rounded ${
-          task.enabled ? 'bg-green-900/50 text-green-400' : 'bg-gray-700 text-gray-400'
-        }`}>
-          {task.enabled ? 'ON' : 'OFF'}
-        </span>
+        <StatusBadge status={task.enabled ? 'enabled' : 'disabled'} />
       </div>
       <div className="text-xs text-gray-500 font-mono">{task.cronExpression}</div>
       <div className="text-xs text-gray-600 mt-1">Last run: {timeAgo(task.lastRun)}</div>

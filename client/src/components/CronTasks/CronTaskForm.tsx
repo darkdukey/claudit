@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CronTask } from '../../types';
 import FolderBrowser from '../FolderBrowser';
+import CronExpressionBuilder from './CronExpressionBuilder';
 
 interface Props {
   initial?: CronTask;
@@ -41,16 +42,8 @@ export default function CronTaskForm({ initial, onSubmit, onCancel }: Props) {
         />
       </div>
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Cron Expression</label>
-        <input
-          type="text"
-          value={cronExpression}
-          onChange={e => setCronExpression(e.target.value)}
-          required
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 font-mono focus:outline-none focus:border-blue-500"
-          placeholder="*/30 * * * *"
-        />
-        <p className="text-xs text-gray-600 mt-1">min hour day month weekday (e.g. "0 9 * * 1-5" = weekdays 9am)</p>
+        <label className="block text-xs text-gray-400 mb-1">Schedule</label>
+        <CronExpressionBuilder value={cronExpression} onChange={setCronExpression} />
       </div>
       <div>
         <label className="block text-xs text-gray-400 mb-1">Prompt</label>
@@ -89,7 +82,12 @@ export default function CronTaskForm({ initial, onSubmit, onCancel }: Props) {
             }} />
             <button
               type="button"
-              onClick={() => setShowBrowser(false)}
+              onClick={() => {
+                setShowBrowser(false);
+                if (projectPath) {
+                  try { localStorage.setItem('claudit:lastBrowserPath', projectPath); } catch {}
+                }
+              }}
               className="mt-2 text-xs text-blue-400 hover:text-blue-300"
             >
               Done

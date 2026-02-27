@@ -6,6 +6,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import sessionRoutes from './routes/sessions.js';
 import cronRoutes from './routes/cron.js';
 import todoRoutes from './routes/todo.js';
+import groupRoutes from './routes/groups.js';
 import todoProviderRoutes from './routes/todoProviders.js';
 import filesystemRoutes from './routes/filesystem.js';
 import { ClaudeProcess } from './services/claudeProcess.js';
@@ -27,6 +28,7 @@ app.use(express.json());
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/cron', cronRoutes);
 app.use('/api/todo/providers', todoProviderRoutes);
+app.use('/api/todo/groups', groupRoutes);
 app.use('/api/todo', todoRoutes);
 app.use('/api/filesystem', filesystemRoutes);
 

@@ -4,15 +4,17 @@ import { db } from './database.js';
 
 // --- Prepared statements ---
 
-const stmtAll = db.prepare('SELECT * FROM todos');
+const stmtAll = db.prepare('SELECT * FROM todos ORDER BY position ASC, createdAt ASC');
 const stmtById = db.prepare('SELECT * FROM todos WHERE id = ?');
 const stmtInsert = db.prepare(`
-  INSERT INTO todos (id, title, description, completed, priority, sessionId, sessionLabel, createdAt, completedAt,
+  INSERT INTO todos (id, title, description, completed, priority, sessionId, sessionLabel, groupId, position, createdAt, completedAt,
     providerId, configId, externalId, externalUrl, lastSyncedAt, syncStatus, syncError)
-  VALUES (@id, @title, @description, @completed, @priority, @sessionId, @sessionLabel, @createdAt, @completedAt,
+  VALUES (@id, @title, @description, @completed, @priority, @sessionId, @sessionLabel, @groupId, @position, @createdAt, @completedAt,
     @providerId, @configId, @externalId, @externalUrl, @lastSyncedAt, @syncStatus, @syncError)
 `);
 const stmtDelete = db.prepare('DELETE FROM todos WHERE id = ?');
+const stmtMaxPosition = db.prepare('SELECT COALESCE(MAX(position), 0) as maxPos FROM todos WHERE groupId IS ?');
+const stmtUpdatePositionGroup = db.prepare('UPDATE todos SET position = ?, groupId = ? WHERE id = ?');
 
 function rowToTodo(row: any): TodoItem {
   const todo: TodoItem = {
@@ -20,11 +22,13 @@ function rowToTodo(row: any): TodoItem {
     title: row.title,
     completed: row.completed === 1,
     priority: row.priority,
+    position: row.position ?? 0,
     createdAt: row.createdAt,
   };
   if (row.description != null) todo.description = row.description;
   if (row.sessionId != null) todo.sessionId = row.sessionId;
   if (row.sessionLabel != null) todo.sessionLabel = row.sessionLabel;
+  if (row.groupId != null) todo.groupId = row.groupId;
   if (row.completedAt != null) todo.completedAt = row.completedAt;
   if (row.providerId != null) {
     todo.provider = {
@@ -50,6 +54,8 @@ function todoToParams(todo: TodoItem) {
     priority: todo.priority,
     sessionId: todo.sessionId ?? null,
     sessionLabel: todo.sessionLabel ?? null,
+    groupId: todo.groupId ?? null,
+    position: todo.position ?? 0,
     createdAt: todo.createdAt,
     completedAt: todo.completedAt ?? null,
     providerId: p?.providerId ?? null,
@@ -60,6 +66,11 @@ function todoToParams(todo: TodoItem) {
     syncStatus: p?.syncStatus ?? null,
     syncError: p?.syncError ?? null,
   };
+}
+
+export function getNextPosition(groupId?: string): number {
+  const row = stmtMaxPosition.get(groupId ?? null) as any;
+  return (row?.maxPos ?? 0) + 1000;
 }
 
 export function getAllTodos(): TodoItem[] {
@@ -76,6 +87,7 @@ export function createTodo(data: Omit<TodoItem, 'id' | 'createdAt'>): TodoItem {
     ...data,
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
+    position: data.position ?? getNextPosition(data.groupId),
   };
   stmtInsert.run(todoToParams(todo));
   return todo;
@@ -94,4 +106,13 @@ export function updateTodo(id: string, updates: Partial<TodoItem>): TodoItem | n
 export function deleteTodo(id: string): boolean {
   const result = stmtDelete.run(id);
   return result.changes > 0;
+}
+
+export function reorderTodos(items: { id: string; position: number; groupId?: string }[]): void {
+  const txn = db.transaction(() => {
+    for (const item of items) {
+      stmtUpdatePositionGroup.run(item.position, item.groupId ?? null, item.id);
+    }
+  });
+  txn();
 }

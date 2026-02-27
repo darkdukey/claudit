@@ -7,6 +7,8 @@ import TodoForm from './TodoForm';
 import TodoEmptyState from './TodoEmptyState';
 import ClaudeItModal from './ClaudeItModal';
 import NewSessionModal from '../NewSessionModal';
+import { StatusBadge, StatusType } from '../StatusDot';
+import Collapsible from '../Collapsible';
 
 const priorityLabels = {
   low: { text: 'Low', className: 'bg-gray-700 text-gray-300' },
@@ -21,7 +23,6 @@ interface Props {
 
 export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
   const [todo, setTodo] = useState<TodoItem | null>(null);
-  const [editing, setEditing] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [showClaudeItModal, setShowClaudeItModal] = useState(false);
   const [showNewSessionModal, setShowNewSessionModal] = useState(false);
@@ -30,6 +31,11 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
   const selectSession = useUIStore(s => s.selectSession);
   const setView = useUIStore(s => s.setView);
   const setPendingTodoPrompt = useUIStore(s => s.setPendingTodoPrompt);
+  const editingTodoId = useUIStore(s => s.editingTodoId);
+  const setEditingTodoId = useUIStore(s => s.setEditingTodoId);
+
+  const editing = editingTodoId === todoId && todoId !== null;
+  const setEditing = (val: boolean) => setEditingTodoId(val ? todoId : null);
 
   const loadTodo = useCallback(async () => {
     if (!todoId) {
@@ -153,8 +159,8 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
 
   if (editing) {
     return (
-      <div className="p-6 overflow-y-auto">
-        <h2 className="text-lg font-semibold text-gray-200 mb-4">Edit Todo</h2>
+      <div className="px-4 py-3 overflow-y-auto">
+        <h2 className="text-lg font-semibold text-gray-200 mb-3">Edit Todo</h2>
         <TodoForm
           initial={todo}
           sessions={sessions}
@@ -177,8 +183,8 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-6 border-b border-gray-800">
-        <div className="flex items-center justify-between mb-3">
+      <div className="px-4 py-3 border-b border-gray-800">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
             <button
               onClick={handleToggle}
@@ -205,9 +211,24 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
               <button
                 onClick={() => setShowClaudeItModal(true)}
                 disabled={claudeItLoading}
-                className="text-xs px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors disabled:opacity-50"
+                className="text-xs px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors disabled:opacity-50 flex items-center gap-1.5"
               >
-                {claudeItLoading ? 'Creating...' : 'Claude It'}
+                {claudeItLoading ? (
+                  <>
+                    <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <svg width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+                      <polygon points="0,0 10,6 0,12" />
+                    </svg>
+                    Claudit
+                  </>
+                )}
               </button>
             )}
             <button
@@ -225,7 +246,7 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-sm">
+        <div className="flex items-center gap-2 text-sm">
           <span className={`text-xs px-2 py-0.5 rounded ${priority.className}`}>
             {priority.text}
           </span>
@@ -243,60 +264,92 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto px-4 py-3">
         {todo.description && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-400 mb-2">Description</h3>
-            <p className="text-sm text-gray-300 whitespace-pre-wrap bg-gray-800 rounded-lg p-3">
-              {todo.description}
-            </p>
+          <div className="mb-3">
+            <Collapsible title="Description" defaultOpen storageKey={`claudit:todo:${todo.id}:desc`}>
+              <p className="text-sm text-gray-300 whitespace-pre-wrap bg-gray-800 rounded-lg p-2">
+                {todo.description}
+              </p>
+            </Collapsible>
           </div>
         )}
 
-        {todo.sessionId && (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-400 mb-2">Linked Session</h3>
-            <div className="text-sm bg-gray-800 rounded-lg p-3">
-              <span className="text-gray-300">{todo.sessionLabel || todo.sessionId}</span>
-              <span className="text-gray-600 text-xs ml-2 font-mono">{todo.sessionId}</span>
+        {todo.sessionId && (() => {
+          const linkedSession = sessions.find(s => s.sessionId === todo.sessionId);
+          return (
+            <div className="mb-3">
+              <Collapsible title="Linked Session" defaultOpen storageKey={`claudit:todo:${todo.id}:session`}>
+                <div className="text-sm bg-gray-800 rounded-lg p-2 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-300">{todo.sessionLabel || todo.sessionId}</span>
+                      <span className="text-gray-600 text-xs font-mono">{todo.sessionId}</span>
+                    </div>
+                    {linkedSession && (
+                      <button
+                        onClick={() => {
+                          selectSession(linkedSession.projectHash, linkedSession.sessionId, linkedSession.projectPath);
+                          setView('sessions');
+                        }}
+                        className="text-xs px-2 py-1 bg-gray-700 text-blue-400 rounded hover:bg-gray-600 transition-colors flex items-center gap-1"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                        Jump to Session
+                      </button>
+                    )}
+                  </div>
+                  {linkedSession && (
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={linkedSession.status as StatusType} />
+                      {linkedSession.lastMessage && (
+                        <span className="text-xs text-gray-500 truncate ml-2">
+                          {linkedSession.lastMessage.slice(0, 80)}{linkedSession.lastMessage.length > 80 ? '...' : ''}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Collapsible>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {todo.provider && (
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-400 mb-2">Provider</h3>
-            <div className="text-sm bg-gray-800 rounded-lg p-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-gray-500">Source:</span>
-                <span className="text-gray-300">{todo.provider.providerId}</span>
-                <span className={`w-2 h-2 rounded-full ${
-                  todo.provider.syncStatus === 'synced' ? 'bg-green-500' :
-                  todo.provider.syncStatus === 'local_modified' ? 'bg-yellow-500' : 'bg-red-500'
-                }`} />
-                <span className="text-xs text-gray-500">{todo.provider.syncStatus}</span>
+          <div className="mb-3">
+            <Collapsible title="Provider" defaultOpen storageKey={`claudit:todo:${todo.id}:provider`}>
+              <div className="text-sm bg-gray-800 rounded-lg p-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500">Source:</span>
+                  <span className="text-gray-300">{todo.provider.providerId}</span>
+                  <StatusBadge status={todo.provider.syncStatus as StatusType} />
+                </div>
+                {todo.provider.lastSyncedAt && (
+                  <div>
+                    <span className="text-gray-500">Last synced:</span>{' '}
+                    <span className="text-gray-300">{new Date(todo.provider.lastSyncedAt).toLocaleString()}</span>
+                  </div>
+                )}
+                {todo.provider.externalUrl && (
+                  <div>
+                    <span className="text-gray-500">External link:</span>{' '}
+                    <a href={todo.provider.externalUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 underline text-xs">
+                      Open in {todo.provider.providerId}
+                    </a>
+                  </div>
+                )}
+                {todo.provider.syncError && (
+                  <div className="text-xs text-red-400 bg-red-900/20 rounded px-2 py-1">
+                    {todo.provider.syncError}
+                  </div>
+                )}
               </div>
-              {todo.provider.lastSyncedAt && (
-                <div>
-                  <span className="text-gray-500">Last synced:</span>{' '}
-                  <span className="text-gray-300">{new Date(todo.provider.lastSyncedAt).toLocaleString()}</span>
-                </div>
-              )}
-              {todo.provider.externalUrl && (
-                <div>
-                  <span className="text-gray-500">External link:</span>{' '}
-                  <a href={todo.provider.externalUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 underline text-xs">
-                    Open in {todo.provider.providerId}
-                  </a>
-                </div>
-              )}
-              {todo.provider.syncError && (
-                <div className="text-xs text-red-400 bg-red-900/20 rounded px-2 py-1">
-                  {todo.provider.syncError}
-                </div>
-              )}
-            </div>
+            </Collapsible>
           </div>
         )}
 

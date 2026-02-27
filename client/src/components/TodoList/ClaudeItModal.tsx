@@ -23,6 +23,8 @@ export default function ClaudeItModal({ onSelect, onClose }: Props) {
 
   const handleStart = () => {
     if (!currentPath) return;
+    // Save confirmed selection path so next time the browser opens here
+    try { localStorage.setItem('claudit:lastBrowserPath', currentPath); } catch {}
     const worktree = useWorktree && branchName.trim()
       ? { branchName: branchName.trim() }
       : undefined;
@@ -35,7 +37,7 @@ export default function ClaudeItModal({ onSelect, onClose }: Props) {
         className="bg-gray-900 border border-gray-700 rounded-lg p-6 w-[480px] max-h-[80vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-sm font-semibold text-gray-200 mb-1">Claude It</h2>
+        <h2 className="text-sm font-semibold text-gray-200 mb-1">Claudit</h2>
         <p className="text-xs text-gray-400 mb-4">Pick a project directory to start a new Claude session for this todo.</p>
 
         <FolderBrowser onPathChange={handlePathChange} />

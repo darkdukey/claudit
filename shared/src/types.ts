@@ -68,6 +68,16 @@ export interface CronExecution {
   status: 'running' | 'success' | 'error';
   output?: string;
   error?: string;
+  sessionId?: string;
+}
+
+// --- Todo Group Types ---
+
+export interface TodoGroup {
+  id: string;
+  name: string;
+  position: number;
+  createdAt: string;
 }
 
 // --- Todo Types ---
@@ -90,6 +100,8 @@ export interface TodoItem {
   priority: 'low' | 'medium' | 'high';
   sessionId?: string;
   sessionLabel?: string;
+  groupId?: string;
+  position: number;
   createdAt: string;
   completedAt?: string;
   provider?: TodoProviderOrigin;

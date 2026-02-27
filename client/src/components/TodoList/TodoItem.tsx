@@ -1,4 +1,7 @@
 import { TodoItem as TodoItemType } from '../../types';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { StatusDot, StatusType } from '../StatusDot';
 
 const priorityColors = {
   low: 'bg-gray-500',
@@ -12,28 +15,45 @@ const providerColors: Record<string, string> = {
   supabase: 'bg-emerald-900/50 text-emerald-400',
 };
 
-const syncStatusDot: Record<string, string> = {
-  synced: 'bg-green-500',
-  local_modified: 'bg-yellow-500',
-  sync_error: 'bg-red-500',
-};
-
 interface Props {
   todo: TodoItemType;
   selected: boolean;
-  onSelect: () => void;
+  multiSelected?: boolean;
+  sessionStatus?: 'idle' | 'running' | 'need_attention';
+  onSelect: (e: React.MouseEvent) => void;
   onToggle: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export default function TodoItem({ todo, selected, onSelect, onToggle }: Props) {
+export default function TodoItem({ todo, selected, multiSelected, sessionStatus, onSelect, onToggle, onContextMenu }: Props) {
   const timeAgo = getTimeAgo(todo.createdAt);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: todo.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       onClick={onSelect}
+      onContextMenu={onContextMenu}
       className={`px-4 py-3 border-b border-gray-800 cursor-pointer transition-colors flex items-start gap-3 ${
-        selected ? 'bg-gray-800' : 'hover:bg-gray-800/50'
-      }`}
+        selected ? 'bg-gray-800' : multiSelected ? 'bg-gray-800/70' : 'hover:bg-gray-800/50'
+      }${multiSelected ? ' ring-1 ring-blue-500/30' : ''}`}
     >
       <button
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
@@ -57,11 +77,14 @@ export default function TodoItem({ todo, selected, onSelect, onToggle }: Props) 
           }`}>
             {todo.title}
           </span>
+          {sessionStatus && (
+            <StatusDot status={sessionStatus as StatusType} title={`Session: ${sessionStatus}`} />
+          )}
           {todo.provider && (
             <span className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 flex items-center gap-1 ${
               providerColors[todo.provider.providerId] || 'bg-gray-700 text-gray-400'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${syncStatusDot[todo.provider.syncStatus] || 'bg-gray-500'}`} />
+              <StatusDot status={todo.provider.syncStatus as StatusType} />
               {todo.provider.providerId}
             </span>
           )}

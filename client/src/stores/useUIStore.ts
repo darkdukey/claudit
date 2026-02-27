@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export type View = 'todo' | 'sessions' | 'cron';
 
@@ -28,6 +29,8 @@ interface UIState {
   showNewModal: boolean;
   todoSessionPrefill: TodoSessionPrefill | null;
   pendingTodoPrompt: PendingTodoPrompt | null;
+  editingTodoId: string | null;
+  editingCronTaskId: string | null;
 
   setView: (view: View) => void;
   selectSession: (projectHash: string, sessionId: string, projectPath: string, isNew?: boolean) => void;
@@ -37,24 +40,45 @@ interface UIState {
   setShowNewModal: (show: boolean) => void;
   setTodoSessionPrefill: (prefill: TodoSessionPrefill | null) => void;
   setPendingTodoPrompt: (data: PendingTodoPrompt | null) => void;
+  setEditingTodoId: (id: string | null) => void;
+  setEditingCronTaskId: (id: string | null) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
-  view: 'sessions',
-  selected: null,
-  selectedCronTaskId: null,
-  selectedTodoId: null,
-  showNewModal: false,
-  todoSessionPrefill: null,
-  pendingTodoPrompt: null,
+export const useUIStore = create<UIState>()(
+  persist(
+    (set) => ({
+      view: 'sessions',
+      selected: null,
+      selectedCronTaskId: null,
+      selectedTodoId: null,
+      showNewModal: false,
+      todoSessionPrefill: null,
+      pendingTodoPrompt: null,
+      editingTodoId: null,
+      editingCronTaskId: null,
 
-  setView: (view) => set({ view }),
-  selectSession: (projectHash, sessionId, projectPath, isNew) =>
-    set({ selected: { projectHash, sessionId, projectPath, isNew } }),
-  clearSelected: () => set({ selected: null }),
-  setSelectedCronTaskId: (id) => set({ selectedCronTaskId: id }),
-  setSelectedTodoId: (id) => set({ selectedTodoId: id }),
-  setShowNewModal: (show) => set({ showNewModal: show }),
-  setTodoSessionPrefill: (prefill) => set({ todoSessionPrefill: prefill }),
-  setPendingTodoPrompt: (data) => set({ pendingTodoPrompt: data }),
-}));
+      setView: (view) => set({ view }),
+      selectSession: (projectHash, sessionId, projectPath, isNew) =>
+        set({ selected: { projectHash, sessionId, projectPath, isNew } }),
+      clearSelected: () => set({ selected: null }),
+      setSelectedCronTaskId: (id) => set({ selectedCronTaskId: id }),
+      setSelectedTodoId: (id) => set({ selectedTodoId: id }),
+      setShowNewModal: (show) => set({ showNewModal: show }),
+      setTodoSessionPrefill: (prefill) => set({ todoSessionPrefill: prefill }),
+      setPendingTodoPrompt: (data) => set({ pendingTodoPrompt: data }),
+      setEditingTodoId: (id) => set({ editingTodoId: id }),
+      setEditingCronTaskId: (id) => set({ editingCronTaskId: id }),
+    }),
+    {
+      name: 'claudit:ui-state',
+      partialize: (state) => ({
+        view: state.view,
+        selected: state.selected,
+        selectedTodoId: state.selectedTodoId,
+        selectedCronTaskId: state.selectedCronTaskId,
+        editingTodoId: state.editingTodoId,
+        editingCronTaskId: state.editingCronTaskId,
+      }),
+    },
+  ),
+);
