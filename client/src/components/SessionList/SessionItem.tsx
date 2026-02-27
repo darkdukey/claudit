@@ -1,0 +1,175 @@
+import { useState, useRef, useEffect } from 'react';
+import { SessionSummary } from '../../types';
+import { useSessionStore } from '../../stores/useSessionStore';
+import { useUIStore } from '../../stores/useUIStore';
+import SessionContextMenu from './SessionContextMenu';
+
+interface Props {
+  session: SessionSummary;
+  projectHash: string;
+  isArchived?: boolean;
+}
+
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString();
+}
+
+export default function SessionItem({ session, projectHash, isArchived }: Props) {
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [showMenu, setShowMenu] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selected = useUIStore(s => s.selected);
+  const selectSession = useUIStore(s => s.selectSession);
+  const setTodoSessionPrefill = useUIStore(s => s.setTodoSessionPrefill);
+  const setView = useUIStore(s => s.setView);
+  const renameSession = useSessionStore(s => s.renameSession);
+  const pinSession = useSessionStore(s => s.pinSession);
+  const archiveSession = useSessionStore(s => s.archiveSession);
+  const unarchiveSession = useSessionStore(s => s.unarchiveSession);
+  const deleteSession = useSessionStore(s => s.deleteSession);
+
+  const isSelected = selected?.sessionId === session.sessionId;
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const handleSelect = () => {
+    selectSession(projectHash, session.sessionId, session.projectPath);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditValue(session.displayName || session.lastMessage);
+    setEditing(true);
+  };
+
+  const handleSave = () => {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== session.lastMessage) {
+      renameSession(session.sessionId, trimmed);
+    }
+    setEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setEditing(false);
+    }
+  };
+
+  const handleAddTodo = () => {
+    setShowMenu(false);
+    setTodoSessionPrefill({
+      sessionId: session.sessionId,
+      sessionLabel: session.displayName || session.lastMessage,
+      projectPath: session.projectPath,
+    });
+    setView('todo');
+  };
+
+  const displayText = session.displayName || session.lastMessage;
+
+  const statusDot = (() => {
+    switch (session.status) {
+      case 'running':
+        return <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" title="Running" />;
+      case 'need_attention':
+        return <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" title="Needs attention" />;
+      default:
+        return <span className="inline-block w-2 h-2 rounded-full bg-gray-600 flex-shrink-0" title="Idle" />;
+    }
+  })();
+
+  return (
+    <div
+      className={`group relative w-full text-left border-b border-gray-800/50 transition-colors cursor-pointer
+        ${isSelected ? 'bg-blue-900/30 border-l-2 border-l-blue-500' : 'hover:bg-gray-800/50'}`}
+      onClick={handleSelect}
+      onDoubleClick={handleDoubleClick}
+    >
+      <div className="px-4 py-2.5">
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={editValue}
+            onChange={e => setEditValue(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={handleKeyDown}
+            onClick={e => e.stopPropagation()}
+            className="w-full text-sm bg-gray-800 text-gray-200 px-1.5 py-0.5 rounded border border-gray-600 outline-none focus:border-blue-500"
+          />
+        ) : (
+          <div className="flex items-center gap-2">
+            {statusDot}
+            {session.pinned && (
+              <svg className="w-3 h-3 text-blue-400 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+              </svg>
+            )}
+            <div className="text-sm text-gray-300 truncate leading-snug flex-1">
+              {displayText}
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); setShowMenu(!showMenu); }}
+              className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300 transition-opacity px-1 text-sm flex-shrink-0"
+            >
+              ...
+            </button>
+          </div>
+        )}
+        <div className="text-xs text-gray-500 mt-1 ml-4">
+          {formatTime(session.timestamp)}
+        </div>
+      </div>
+      {showMenu && (
+        <SessionContextMenu
+          isArchived={isArchived}
+          isPinned={session.pinned}
+          onRename={() => {
+            setShowMenu(false);
+            setEditValue(session.displayName || session.lastMessage);
+            setEditing(true);
+          }}
+          onPin={() => {
+            setShowMenu(false);
+            pinSession(session.sessionId);
+          }}
+          onAddTodo={handleAddTodo}
+          onArchive={() => {
+            setShowMenu(false);
+            if (isArchived) {
+              unarchiveSession(session.sessionId);
+            } else {
+              archiveSession(session.sessionId);
+            }
+          }}
+          onDelete={() => {
+            setShowMenu(false);
+            deleteSession(session.sessionId);
+          }}
+          onClose={() => setShowMenu(false)}
+        />
+      )}
+    </div>
+  );
+}

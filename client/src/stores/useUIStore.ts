@@ -1,0 +1,60 @@
+import { create } from 'zustand';
+
+export type View = 'todo' | 'sessions' | 'cron';
+
+interface SelectedSession {
+  projectHash: string;
+  sessionId: string;
+  projectPath: string;
+  isNew?: boolean;
+}
+
+interface TodoSessionPrefill {
+  sessionId: string;
+  sessionLabel: string;
+  projectPath: string;
+}
+
+interface PendingTodoPrompt {
+  sessionId: string;
+  prompt: string;
+}
+
+interface UIState {
+  view: View;
+  selected: SelectedSession | null;
+  selectedCronTaskId: string | null;
+  selectedTodoId: string | null;
+  showNewModal: boolean;
+  todoSessionPrefill: TodoSessionPrefill | null;
+  pendingTodoPrompt: PendingTodoPrompt | null;
+
+  setView: (view: View) => void;
+  selectSession: (projectHash: string, sessionId: string, projectPath: string, isNew?: boolean) => void;
+  clearSelected: () => void;
+  setSelectedCronTaskId: (id: string | null) => void;
+  setSelectedTodoId: (id: string | null) => void;
+  setShowNewModal: (show: boolean) => void;
+  setTodoSessionPrefill: (prefill: TodoSessionPrefill | null) => void;
+  setPendingTodoPrompt: (data: PendingTodoPrompt | null) => void;
+}
+
+export const useUIStore = create<UIState>((set) => ({
+  view: 'sessions',
+  selected: null,
+  selectedCronTaskId: null,
+  selectedTodoId: null,
+  showNewModal: false,
+  todoSessionPrefill: null,
+  pendingTodoPrompt: null,
+
+  setView: (view) => set({ view }),
+  selectSession: (projectHash, sessionId, projectPath, isNew) =>
+    set({ selected: { projectHash, sessionId, projectPath, isNew } }),
+  clearSelected: () => set({ selected: null }),
+  setSelectedCronTaskId: (id) => set({ selectedCronTaskId: id }),
+  setSelectedTodoId: (id) => set({ selectedTodoId: id }),
+  setShowNewModal: (show) => set({ showNewModal: show }),
+  setTodoSessionPrefill: (prefill) => set({ todoSessionPrefill: prefill }),
+  setPendingTodoPrompt: (data) => set({ pendingTodoPrompt: data }),
+}));

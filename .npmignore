@@ -1,0 +1,28 @@
+# Source code
+server/src/
+client/src/
+shared/
+
+# Dependencies (installed by consumer)
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# Config & dev files
+client/tsconfig.json
+client/vite.config.ts
+client/tailwind.config.js
+client/postcss.config.js
+client/index.html
+client/package.json
+client/package-lock.json
+server/tsconfig.json
+server/package.json
+server/package-lock.json
+
+# Dev tooling
+.claude/
+.git/
+.gitignore
+README.md
+package-lock.json
