@@ -52,13 +52,12 @@ export async function fetchSessionDetail(
 
 export async function createSession(
   projectPath: string,
-  worktree?: { branchName: string },
-  displayName?: string,
+  opts?: { worktree?: { branchName: string }; displayName?: string; initialPrompt?: string },
 ): Promise<{ sessionId: string; projectPath: string; projectHash: string }> {
   const res = await fetch('/api/sessions/new', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectPath, worktree, displayName }),
+    body: JSON.stringify({ projectPath, ...opts }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Failed to create session' }));

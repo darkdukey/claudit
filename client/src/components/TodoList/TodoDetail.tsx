@@ -109,9 +109,12 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
     setShowClaudeItModal(false);
     setClaudeItLoading(true);
     try {
-      const result = await createSession(projectPath, worktree, todo.title);
+      const result = await createSession(projectPath, {
+        worktree,
+        displayName: todo.title,
+      });
 
-      // Build the prompt
+      // Build prompt to pre-fill in terminal (user reviews and presses Enter to submit)
       const prompt = [
         'I have a task to complete:',
         '',
@@ -129,11 +132,11 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
       });
       setTodo(updated);
 
-      // Set pending prompt to auto-send
+      // Set prompt to pre-fill in terminal (without auto-submit)
       setPendingTodoPrompt({ sessionId: result.sessionId, prompt });
 
-      // Switch to sessions view and select the new session
-      selectSession(result.projectHash, result.sessionId, result.projectPath, true);
+      // Switch to sessions view and resume the session
+      selectSession(result.projectHash, result.sessionId, result.projectPath);
       setView('sessions');
     } catch (err: any) {
       console.error('Failed to create Claude It session:', err);

@@ -94,13 +94,13 @@ export default function TerminalView({ sessionId, projectPath, isNew }: Props) {
         switch (ctrl.type) {
           case 'ready':
             setStatus('connected');
-            // Check for pending todo prompt to auto-send
+            // Pre-fill pending todo prompt (no Enter — user reviews and submits)
             {
               const pending = useUIStore.getState().pendingTodoPrompt;
               if (pending && pending.sessionId === sessionId) {
                 setTimeout(() => {
                   if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'input', data: pending.prompt + '\n' }));
+                    ws.send(JSON.stringify({ type: 'input', data: pending.prompt }));
                   }
                   useUIStore.getState().setPendingTodoPrompt(null);
                 }, 1500);

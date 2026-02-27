@@ -31,7 +31,7 @@ interface SessionState {
   // Actions
   fetchSessions: (q?: string) => Promise<void>;
   fetchArchived: () => Promise<void>;
-  createSession: (projectPath: string, worktree?: { branchName: string }) => Promise<{ projectHash: string; sessionId: string; projectPath: string } | null>;
+  createSession: (projectPath: string, opts?: { worktree?: { branchName: string }; displayName?: string; initialPrompt?: string }) => Promise<{ projectHash: string; sessionId: string; projectPath: string } | null>;
   renameSession: (sessionId: string, name: string) => Promise<void>;
   pinSession: (sessionId: string) => Promise<void>;
   archiveSession: (sessionId: string) => Promise<void>;
@@ -91,10 +91,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  createSession: async (projectPath, worktree) => {
+  createSession: async (projectPath, opts) => {
     set({ creating: true });
     try {
-      const result = await apiCreateSession(projectPath, worktree);
+      const result = await apiCreateSession(projectPath, opts);
       const q = get().query;
       await get().fetchSessions(q || undefined);
       return result;

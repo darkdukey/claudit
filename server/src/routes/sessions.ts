@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
 // POST /api/sessions/new — create a fresh claude session
 router.post('/new', (req, res) => {
   try {
-    const { projectPath, worktree, displayName } = req.body;
+    const { projectPath, worktree, displayName, initialPrompt } = req.body;
     if (!projectPath || typeof projectPath !== 'string') {
       res.status(400).json({ error: 'projectPath is required' });
       return;
@@ -65,11 +65,15 @@ router.post('/new', (req, res) => {
       actualProjectPath = worktreePath;
     }
 
-    // Run claude with a minimal prompt to create a session
+    // Run claude with the initial prompt to create a session
+    const prompt = (typeof initialPrompt === 'string' && initialPrompt.trim())
+      ? initialPrompt.trim()
+      : 'hello';
     const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== 'CLAUDECODE'));
+    const escapedPrompt = prompt.replace(/'/g, "'\\''");
     const result = execSync(
-      'claude -p --output-format json --max-turns 1 "hello"',
-      { cwd: actualProjectPath, encoding: 'utf-8', timeout: 30_000, env: cleanEnv },
+      `claude -p --output-format json --max-turns 1 '${escapedPrompt}'`,
+      { cwd: actualProjectPath, encoding: 'utf-8', timeout: 60_000, env: cleanEnv },
     );
 
     // Parse the JSON result to get the session ID

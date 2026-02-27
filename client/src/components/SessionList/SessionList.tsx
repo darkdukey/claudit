@@ -46,7 +46,7 @@ export default function SessionList() {
 
   const handleCreateSession = async (projectPath: string, worktree?: { branchName: string }) => {
     setShowNewModal(false);
-    const result = await createSession(projectPath, worktree);
+    const result = await createSession(projectPath, { worktree });
     if (result) {
       selectSession(result.projectHash, result.sessionId, result.projectPath);
     }
