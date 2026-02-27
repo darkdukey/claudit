@@ -27,7 +27,7 @@ router.get('/', (req, res) => {
 // POST /api/sessions/new — create a fresh claude session
 router.post('/new', (req, res) => {
   try {
-    const { projectPath, worktree } = req.body;
+    const { projectPath, worktree, displayName } = req.body;
     if (!projectPath || typeof projectPath !== 'string') {
       res.status(400).json({ error: 'projectPath is required' });
       return;
@@ -85,6 +85,9 @@ router.post('/new', (req, res) => {
 
     // Record in managed store
     addManagedSession(sessionId, actualProjectPath);
+    if (displayName) {
+      renameManagedSession(sessionId, displayName);
+    }
 
     // Invalidate cache so the new session shows up
     invalidateSessionCache();

@@ -109,7 +109,7 @@ export default function TodoDetail({ todoId, onTodoDeleted }: Props) {
     setShowClaudeItModal(false);
     setClaudeItLoading(true);
     try {
-      const result = await createSession(projectPath, worktree);
+      const result = await createSession(projectPath, worktree, todo.title);
 
       // Build the prompt
       const prompt = [
