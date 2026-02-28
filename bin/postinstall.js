@@ -25,3 +25,12 @@ try {
 } catch {
   // claude CLI not available — skip silently
 }
+
+// Auto-start daemon in background and open browser
+try {
+  const clauditScript = join(__dirname, 'claudit.js');
+  execSync(`"${process.execPath}" "${clauditScript}" start`, { stdio: 'ignore', timeout: 5000 });
+  console.log('[claudit] Background server started');
+} catch {
+  // Start failed — skip silently (user can run `claudit start` manually)
+}

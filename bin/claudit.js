@@ -4,10 +4,49 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { createRequire } from 'module';
 import { readFileSync } from 'fs';
+import { startDaemon, stopDaemon, statusDaemon, installService, uninstallService, openBrowser } from './daemon.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = join(__dirname, '..');
+
+// Subcommand routing
+const cmd = process.argv[2];
+
+if (cmd === 'start') {
+  startDaemon(__filename);
+  process.exit(0);
+}
+
+if (cmd === 'stop') {
+  const force = process.argv.includes('--force') || process.argv.includes('-f');
+  await stopDaemon(force);
+  process.exit(0);
+}
+
+if (cmd === 'status') {
+  statusDaemon();
+  process.exit(0);
+}
+
+if (cmd === 'open') {
+  openBrowser(process.env.PORT);
+  process.exit(0);
+}
+
+if (cmd === 'service') {
+  const sub = process.argv[3];
+  if (sub === 'install') {
+    installService();
+    process.exit(0);
+  }
+  if (sub === 'uninstall') {
+    uninstallService();
+    process.exit(0);
+  }
+  console.error('Usage: claudit service <install|uninstall>');
+  process.exit(1);
+}
 
 // --version / -v
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
@@ -21,7 +60,16 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
   const pkg = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf-8'));
   console.log(`claudit v${pkg.version} — ${pkg.description}
 
-Usage: claudit [options]
+Usage: claudit [command] [options]
+
+Commands:
+  (none)              Start server in foreground
+  start               Start background daemon and open browser
+  stop [--force]      Stop background daemon (blocked if sessions active)
+  status              Show daemon status
+  open                Open dashboard in browser
+  service install     Install as boot service (launchd/systemd)
+  service uninstall   Uninstall boot service
 
 Options:
   -h, --help     Show this help message
