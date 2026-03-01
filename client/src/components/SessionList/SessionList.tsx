@@ -149,12 +149,17 @@ export default function SessionList() {
       setSelectedIds(next);
       lastClickedIndexRef.current = flatIndex;
     } else {
-      // Plain click — clear selection and open detail
+      // Plain click — clear selection and open detail (or deselect if already selected)
       setSelectedIds(new Set());
       setContextMenu(null);
-      const info = sessionLookup.get(sessionId);
-      if (info) {
-        selectSession(info.projectHash, sessionId, info.projectPath);
+      const currentSelected = useUIStore.getState().selected;
+      if (currentSelected?.sessionId === sessionId) {
+        clearSelected();
+      } else {
+        const info = sessionLookup.get(sessionId);
+        if (info) {
+          selectSession(info.projectHash, sessionId, info.projectPath);
+        }
       }
       lastClickedIndexRef.current = flatIndex;
     }
@@ -241,10 +246,10 @@ export default function SessionList() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b border-gray-800">
-        <div className="flex items-center justify-between mb-2">
+      <div className="p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <h1 className="text-sm font-semibold text-gray-200">Claude Sessions</h1>
+            <h2 className="text-lg font-semibold text-gray-200">Sessions</h2>
             <button
               onClick={toggleAllGroups}
               title={allExpanded ? 'Collapse all' : 'Expand all'}
@@ -256,13 +261,13 @@ export default function SessionList() {
           <button
             onClick={() => clearSelected()}
             disabled={creating}
-            className="text-xs px-2 py-1 rounded bg-claude hover:bg-claude-hover disabled:opacity-50 text-white transition-colors"
+            className="text-xs px-3 py-1.5 bg-claude text-white rounded-lg hover:bg-claude-hover disabled:opacity-50 transition-colors"
           >
             {creating ? '...' : '+ New'}
           </button>
         </div>
         {/* Toggle pill */}
-        <div className="flex rounded-md overflow-hidden border border-gray-700 text-xs">
+        <div className="flex rounded-md overflow-hidden border border-gray-700 text-xs mt-2">
           <button
             onClick={() => setManagedOnly(false)}
             className={`flex-1 px-3 py-1 transition-colors ${

@@ -42,7 +42,7 @@ export default function App() {
         input?.focus();
       }
 
-      if (e.key === 'n') {
+      if (e.key === 'n' && e.shiftKey) {
         e.preventDefault();
         const currentView = useUIStore.getState().view;
         if (currentView === 'sessions') {

@@ -149,8 +149,15 @@ export default function CronTaskDetail({ taskId, onTaskDeleted }: Props) {
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-gray-200">{task.name}</h2>
           <div className="flex items-center gap-2">
-            <button onClick={handleToggle} className="hover:opacity-80 transition-opacity">
-              <StatusBadge status={task.enabled ? 'enabled' : 'disabled'} label={task.enabled ? 'Enabled' : 'Disabled'} />
+            <button
+              onClick={handleToggle}
+              className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                task.enabled
+                  ? 'bg-green-900/50 text-green-400 hover:bg-green-900/70'
+                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
+              }`}
+            >
+              {task.enabled ? 'Enabled' : 'Disabled'}
             </button>
             <button
               onClick={handleRun}

@@ -89,7 +89,7 @@ async function executeTask(taskId: string) {
 
   // Step 2: Execute the full prompt (resume session if available)
   const args = sessionId
-    ? ['--session-id', sessionId, '--resume', '-p', '--output-format', 'text', '--dangerously-skip-permissions']
+    ? ['--continue', sessionId, '-p', '--output-format', 'text', '--dangerously-skip-permissions']
     : ['-p', '--output-format', 'text', '--dangerously-skip-permissions'];
 
   const child = spawn('claude', args, {

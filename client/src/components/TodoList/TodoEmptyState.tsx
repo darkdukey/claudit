@@ -21,6 +21,7 @@ export default function TodoEmptyState({ onTodoCreated }: Props) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
 
   // Load sessions for linking
   useEffect(() => {
@@ -82,7 +83,14 @@ export default function TodoEmptyState({ onTodoCreated }: Props) {
     }
   }, [title, description, priority, selectedSessionId, sessions, submitting, onTodoCreated, setTodoDraft, setTodoSessionPrefill]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      descRef.current?.focus();
+    }
+  };
+
+  const handleDescKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey && !submitting) {
       e.preventDefault();
       handleSubmit();
@@ -107,7 +115,7 @@ export default function TodoEmptyState({ onTodoCreated }: Props) {
             ref={inputRef}
             value={title}
             onChange={e => setTitle(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleTitleKeyDown}
             placeholder="What needs to be done?"
             className="w-full text-sm text-gray-200 placeholder-gray-500 bg-transparent outline-none"
           />
@@ -116,9 +124,11 @@ export default function TodoEmptyState({ onTodoCreated }: Props) {
         {/* Description */}
         <div className="px-4 pb-2">
           <textarea
+            ref={descRef}
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="Description (optional)"
+            onKeyDown={handleDescKeyDown}
+            placeholder="Description (optional, Enter to create)"
             rows={2}
             className="w-full resize-none text-sm text-gray-300 placeholder-gray-600 bg-transparent outline-none"
             style={{ minHeight: '40px', maxHeight: '120px' }}
@@ -193,7 +203,9 @@ export default function TodoEmptyState({ onTodoCreated }: Props) {
 
       {/* Keyboard hint */}
       <div className="mt-4 text-xs text-gray-600">
-        Press <kbd className="px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 text-gray-500 font-mono text-[10px]">Enter</kbd> to create
+        <kbd className="px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 text-gray-500 font-mono text-[10px]">Enter</kbd> next field
+        <span className="mx-2 text-gray-700">|</span>
+        <kbd className="px-1.5 py-0.5 bg-gray-800 rounded border border-gray-700 text-gray-500 font-mono text-[10px]">Enter</kbd> in description to create
       </div>
     </div>
   );

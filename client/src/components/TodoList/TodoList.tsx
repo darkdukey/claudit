@@ -109,6 +109,11 @@ export default function TodoList({ selectedTodoId, onSelect }: Props) {
     return () => clearInterval(interval);
   }, [loadTodos, loadGroups, loadSessions]);
 
+  // Refresh list when selection changes (e.g. after creation)
+  useEffect(() => {
+    if (selectedTodoId) loadTodos();
+  }, [selectedTodoId, loadTodos]);
+
   // Watch for session→todo prefill
   useEffect(() => {
     if (todoSessionPrefill) {
@@ -156,6 +161,11 @@ export default function TodoList({ selectedTodoId, onSelect }: Props) {
       });
     } else {
       setSelectedIds(new Set());
+      // Toggle: deselect if already selected
+      if (todoId === selectedTodoId) {
+        onSelect(null);
+        return;
+      }
     }
     lastClickedIndex.current = index;
     onSelect(todoId);
