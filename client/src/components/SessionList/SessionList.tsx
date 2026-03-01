@@ -25,6 +25,8 @@ export default function SessionList() {
     creating,
     archivedExpanded,
     archivedGroupExpanded,
+    contentSearchResults,
+    contentSearching,
     fetchSessions,
     fetchArchived,
     createSession,
@@ -32,7 +34,11 @@ export default function SessionList() {
     setQuery,
     setManagedOnly,
     setArchivedExpanded,
+    searchContent,
+    clearContentSearch,
   } = useSessionStore();
+
+  const [contentMode, setContentMode] = useState(false);
 
   const selectSession = useUIStore(s => s.selectSession);
   const clearSelected = useUIStore(s => s.clearSelected);
@@ -51,10 +57,15 @@ export default function SessionList() {
   // Debounced query search
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchSessions(query || undefined);
+      if (contentMode && query) {
+        searchContent(query);
+      } else {
+        clearContentSearch();
+        fetchSessions(query || undefined);
+      }
     }, 300);
     return () => clearTimeout(timer);
-  }, [query, fetchSessions, managedOnly]);
+  }, [query, fetchSessions, managedOnly, contentMode, searchContent, clearContentSearch]);
 
   // Flat list of visible sessions for shift-click range selection
   const flatVisibleSessions = useMemo(() => {
@@ -297,8 +308,39 @@ export default function SessionList() {
         </div>
       )}
 
-      <SearchBar value={query} onChange={setQuery} />
+      <SearchBar
+        value={query}
+        onChange={setQuery}
+        contentMode={contentMode}
+        onToggleContentMode={() => {
+          setContentMode(!contentMode);
+          if (contentMode) clearContentSearch();
+        }}
+      />
       <div className="flex-1 overflow-y-auto">
+        {/* Content search results */}
+        {contentMode && query ? (
+          contentSearching ? (
+            <div className="p-4 text-sm text-gray-500">Searching content...</div>
+          ) : contentSearchResults.length === 0 ? (
+            <div className="p-4 text-sm text-gray-500">No matches found</div>
+          ) : (
+            contentSearchResults.map(r => (
+              <button
+                key={r.sessionId}
+                onClick={() => selectSession(r.projectHash, r.sessionId, r.projectPath)}
+                className="w-full text-left border-b border-gray-800/50 hover:bg-gray-800/50 transition-colors"
+              >
+                <div className="px-4 py-2.5">
+                  <div className="text-sm text-gray-300 truncate">{r.projectPath.split('/').pop()}/{r.sessionId.slice(0, 8)}</div>
+                  <div className="text-xs text-gray-500 mt-1 truncate">{r.snippet}</div>
+                  <div className="text-[10px] text-gray-600 mt-0.5">{r.matchCount} match{r.matchCount > 1 ? 'es' : ''}</div>
+                </div>
+              </button>
+            ))
+          )
+        ) : (
+        <>
         {loading && (
           <div className="p-4 text-sm text-gray-500">Loading sessions...</div>
         )}
@@ -342,6 +384,8 @@ export default function SessionList() {
               />
             ))}
           </div>
+        )}
+        </>
         )}
       </div>
 

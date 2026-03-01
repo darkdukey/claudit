@@ -3,7 +3,7 @@ import FolderBrowser from '../FolderBrowser';
 import { useUIStore } from '../../stores/useUIStore';
 
 interface Props {
-  onCreateSession?: (projectPath: string, initialPrompt?: string, worktree?: { branchName: string }) => Promise<boolean>;
+  onCreateSession?: (projectPath: string, initialPrompt?: string, worktree?: { branchName: string }) => Promise<true | string>;
 }
 
 function Mascot({ running }: { running?: boolean }) {
@@ -61,6 +61,7 @@ export default function EmptyState({ onCreateSession }: Props) {
   const [useWorktree, setUseWorktree] = useState(() => sessionDraft?.useWorktree ?? false);
   const [branchName, setBranchName] = useState(() => sessionDraft?.branchName ?? '');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const folderRef = useRef<HTMLDivElement>(null);
 
@@ -92,12 +93,15 @@ export default function EmptyState({ onCreateSession }: Props) {
   const handleSubmit = useCallback(async () => {
     if (!projectPath || !onCreateSession || submitting) return;
     setSubmitting(true);
+    setError(null);
     try {
       const worktree = useWorktree && branchName.trim() ? { branchName: branchName.trim() } : undefined;
-      const success = await onCreateSession(projectPath, prompt.trim() || undefined, worktree);
-      if (success) {
+      const result = await onCreateSession(projectPath, prompt.trim() || undefined, worktree);
+      if (result === true) {
         setPrompt('');
         setSessionDraft(null);
+      } else {
+        setError(result);
       }
     } finally {
       setSubmitting(false);
@@ -114,6 +118,7 @@ export default function EmptyState({ onCreateSession }: Props) {
   const handlePathChange = useCallback((path: string, gitRepo: boolean) => {
     setProjectPath(path);
     setIsGitRepo(gitRepo);
+    setError(null);
   }, []);
 
   return (
@@ -123,6 +128,20 @@ export default function EmptyState({ onCreateSession }: Props) {
         <Mascot running={submitting} />
       </div>
 
+      {/* Error banner */}
+      {error && (
+        <div className="w-full max-w-[560px] mb-3 bg-red-950/50 border border-red-800/50 rounded-xl px-4 py-3 flex items-center gap-3">
+          <span className="text-red-400 text-sm flex-1">{error}</span>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="text-xs px-3 py-1.5 bg-red-800/50 hover:bg-red-700/50 text-red-300 rounded-lg transition-colors flex-shrink-0"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Input card */}
       <div className="w-full max-w-[560px] bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
         {/* Prompt textarea */}
@@ -130,7 +149,7 @@ export default function EmptyState({ onCreateSession }: Props) {
           <textarea
             ref={inputRef}
             value={prompt}
-            onChange={e => setPrompt(e.target.value)}
+            onChange={e => { setPrompt(e.target.value); setError(null); }}
             onKeyDown={handleKeyDown}
             placeholder="Describe a task for Claude..."
             rows={1}

@@ -120,6 +120,93 @@ router.post('/new', (req, res) => {
   }
 });
 
+// GET /api/sessions/search?q=keyword — full-text search inside session JSONL content
+router.get('/search', (req, res) => {
+  try {
+    const query = (req.query.q as string || '').trim().toLowerCase();
+    if (!query) {
+      res.json({ results: [] });
+      return;
+    }
+
+    const groups = getSessionIndex(undefined, true, false);
+    const MAX_BYTES = 500 * 1024; // 500KB per file
+    const results: { sessionId: string; projectHash: string; projectPath: string; snippet: string; matchCount: number }[] = [];
+
+    for (const group of groups) {
+      for (const session of group.sessions) {
+        const filePath = path.join(os.homedir(), '.claude', 'projects', group.projectHash, `${session.sessionId}.jsonl`);
+        if (!fs.existsSync(filePath)) continue;
+
+        try {
+          const fd = fs.openSync(filePath, 'r');
+          const buf = Buffer.alloc(MAX_BYTES);
+          const bytesRead = fs.readSync(fd, buf, 0, MAX_BYTES, 0);
+          fs.closeSync(fd);
+          const content = buf.toString('utf-8', 0, bytesRead);
+          const lines = content.split('\n');
+
+          let matchCount = 0;
+          let snippet = '';
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              // Extract text from message content
+              const texts: string[] = [];
+              if (parsed.message?.content) {
+                if (typeof parsed.message.content === 'string') {
+                  texts.push(parsed.message.content);
+                } else if (Array.isArray(parsed.message.content)) {
+                  for (const block of parsed.message.content) {
+                    if (block.text) texts.push(block.text);
+                    if (block.thinking) texts.push(block.thinking);
+                    if (typeof block.content === 'string') texts.push(block.content);
+                  }
+                }
+              }
+              for (const text of texts) {
+                const lower = text.toLowerCase();
+                let idx = -1;
+                while ((idx = lower.indexOf(query, idx + 1)) !== -1) {
+                  matchCount++;
+                  if (!snippet) {
+                    const start = Math.max(0, idx - 40);
+                    const end = Math.min(text.length, idx + query.length + 40);
+                    snippet = (start > 0 ? '...' : '') + text.slice(start, end) + (end < text.length ? '...' : '');
+                  }
+                }
+              }
+            } catch {
+              // skip malformed lines
+            }
+          }
+
+          if (matchCount > 0) {
+            results.push({
+              sessionId: session.sessionId,
+              projectHash: group.projectHash,
+              projectPath: group.projectPath,
+              snippet,
+              matchCount,
+            });
+          }
+        } catch {
+          // skip unreadable files
+        }
+      }
+    }
+
+    // Sort by match count desc
+    results.sort((a, b) => b.matchCount - a.matchCount);
+    res.json({ results: results.slice(0, 50) });
+  } catch (err) {
+    console.error('Error searching sessions:', err);
+    res.status(500).json({ error: 'Failed to search sessions' });
+  }
+});
+
 // GET /api/sessions/archived — return archived sessions
 router.get('/archived', (req, res) => {
   try {

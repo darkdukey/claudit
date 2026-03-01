@@ -124,6 +124,21 @@ export async function deleteSession(
   }
 }
 
+export interface ContentSearchResult {
+  sessionId: string;
+  projectHash: string;
+  projectPath: string;
+  snippet: string;
+  matchCount: number;
+}
+
+export async function searchSessionContent(query: string): Promise<ContentSearchResult[]> {
+  const res = await fetch(`/api/sessions/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) throw new Error('Failed to search sessions');
+  const data = await res.json();
+  return data.results;
+}
+
 export async function fetchArchivedSessions(): Promise<ArchivedResponse> {
   const res = await fetch('/api/sessions/archived');
   if (!res.ok) throw new Error('Failed to fetch archived sessions');

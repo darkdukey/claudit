@@ -10,6 +10,7 @@ import TodoList from './components/TodoList/TodoList';
 import TodoDetail from './components/TodoList/TodoDetail';
 import { useUIStore } from './stores/useUIStore';
 import { useSessionStore } from './stores/useSessionStore';
+import { requestNotificationPermission } from './utils/notifications';
 
 export default function App() {
   const view = useUIStore(s => s.view);
@@ -25,20 +26,46 @@ export default function App() {
   const disconnectEventStream = useSessionStore(s => s.disconnectEventStream);
 
   useEffect(() => {
+    requestNotificationPermission();
     connectEventStream();
     return () => disconnectEventStream();
   }, [connectEventStream, disconnectEventStream]);
 
-  const handleCreateFromEmpty = useCallback(async (projectPath: string, initialPrompt?: string, worktree?: { branchName: string }): Promise<boolean> => {
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+
+      if (e.key === 'k') {
+        e.preventDefault();
+        const input = document.querySelector('[data-search-input]') as HTMLInputElement;
+        input?.focus();
+      }
+
+      if (e.key === 'n') {
+        e.preventDefault();
+        const currentView = useUIStore.getState().view;
+        if (currentView === 'sessions') {
+          useUIStore.getState().clearSelected();
+        } else if (currentView === 'todo') {
+          useUIStore.getState().setSelectedTodoId(null);
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  const handleCreateFromEmpty = useCallback(async (projectPath: string, initialPrompt?: string, worktree?: { branchName: string }): Promise<true | string> => {
     try {
       const result = await createSession(projectPath, { initialPrompt, worktree });
       if (result) {
         selectSession(result.projectHash, result.sessionId, result.projectPath, true);
         return true;
       }
-      return false;
-    } catch {
-      return false;
+      return 'Session creation failed';
+    } catch (e: any) {
+      return e.message || 'Session creation failed';
     }
   }, [createSession, selectSession]);
 

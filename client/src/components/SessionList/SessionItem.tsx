@@ -109,14 +109,12 @@ export default function SessionItem({ session, projectHash, isArchived, multiSel
 
   const displayText = session.displayName || session.lastMessage;
 
-  const statusDot = (() => {
+  const statusEmoji = (() => {
     switch (session.status) {
-      case 'running':
-        return <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" title="Running" />;
-      case 'need_attention':
-        return <span className="inline-block w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" title="Needs attention" />;
-      default:
-        return <span className="inline-block w-2 h-2 rounded-full bg-gray-600 flex-shrink-0" title="Idle" />;
+      case 'running': return '🏃';
+      case 'need_attention': return '🔔';
+      default: // idle
+        return session.messageCount > 0 ? '👍' : null;
     }
   })();
 
@@ -144,7 +142,7 @@ export default function SessionItem({ session, projectHash, isArchived, multiSel
           />
         ) : (
           <div className="flex items-center gap-2">
-            {statusDot}
+            {statusEmoji && <span className="text-sm flex-shrink-0" title={session.status}>{statusEmoji}</span>}
             {session.pinned && (
               <svg className="w-3 h-3 text-claude flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />

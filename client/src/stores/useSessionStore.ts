@@ -8,7 +8,10 @@ import {
   deleteSession as apiDeleteSession,
   pinSession as apiPinSession,
   fetchArchivedSessions,
+  searchSessionContent,
+  ContentSearchResult,
 } from '../api/sessions';
+import { checkForAttentionTransitions, initPrevStatusMap } from '../utils/notifications';
 
 interface SessionState {
   groups: ProjectGroup[];
@@ -22,6 +25,8 @@ interface SessionState {
   creating: boolean;
   archivedExpanded: boolean;
   archivedGroupExpanded: Set<string>;
+  contentSearchResults: ContentSearchResult[];
+  contentSearching: boolean;
 
   // Internal
   _initializedExpanded: boolean;
@@ -43,6 +48,8 @@ interface SessionState {
   setQuery: (q: string) => void;
   setManagedOnly: (v: boolean) => void;
   setArchivedExpanded: (v: boolean) => void;
+  searchContent: (query: string) => Promise<void>;
+  clearContentSearch: () => void;
 
   // Event stream (R5)
   connectEventStream: () => void;
@@ -61,6 +68,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   creating: false,
   archivedExpanded: false,
   archivedGroupExpanded: new Set(),
+  contentSearchResults: [],
+  contentSearching: false,
   _initializedExpanded: false,
   _eventWs: null,
   _reconnectTimer: null,
@@ -74,6 +83,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         if (!state._initializedExpanded && data.length > 0) {
           newState.expandedSet = new Set(data.map(g => g.projectHash));
           newState._initializedExpanded = true;
+          // Initialize status map on first load (no notifications)
+          initPrevStatusMap(data);
+        } else {
+          // Check for status transitions to fire notifications
+          checkForAttentionTransitions(data);
         }
         return newState;
       });
@@ -99,8 +113,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       await get().fetchSessions(q || undefined);
       return result;
     } catch (e: any) {
-      alert(`Failed to create session: ${e.message}`);
-      return null;
+      throw e;
     } finally {
       set({ creating: false });
     }
@@ -204,6 +217,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   setQuery: (q) => set({ query: q }),
   setManagedOnly: (v) => set({ managedOnly: v }),
   setArchivedExpanded: (v) => set({ archivedExpanded: v }),
+
+  searchContent: async (query: string) => {
+    set({ contentSearching: true });
+    try {
+      const results = await searchSessionContent(query);
+      set({ contentSearchResults: results, contentSearching: false });
+    } catch {
+      set({ contentSearchResults: [], contentSearching: false });
+    }
+  },
+
+  clearContentSearch: () => set({ contentSearchResults: [], contentSearching: false }),
 
   connectEventStream: () => {
     const { _eventWs } = get();

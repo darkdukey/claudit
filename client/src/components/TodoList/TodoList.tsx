@@ -34,6 +34,7 @@ export default function TodoList({ selectedTodoId, onSelect }: Props) {
   const [loading, setLoading] = useState(true);
   const [showGroupManager, setShowGroupManager] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; todoIds: string[] } | null>(null);
@@ -250,6 +251,10 @@ export default function TodoList({ selectedTodoId, onSelect }: Props) {
       if (filter === 'done' && !t.completed) return false;
       if (groupFilter === 'ungrouped' && t.groupId) return false;
       if (groupFilter !== 'all' && groupFilter !== 'ungrouped' && t.groupId !== groupFilter) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!t.title.toLowerCase().includes(q) && !(t.description?.toLowerCase().includes(q) ?? false)) return false;
+      }
       return true;
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   };
@@ -290,6 +295,34 @@ export default function TodoList({ selectedTodoId, onSelect }: Props) {
           >
             + New
           </button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="p-3 border-b border-gray-800">
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            data-search-input
+            placeholder="Search todos..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-7 py-2 rounded-md bg-gray-800 text-gray-200 text-sm
+                       placeholder-gray-500 border border-gray-700 focus:border-blue-500
+                       focus:outline-none transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
+            >
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
