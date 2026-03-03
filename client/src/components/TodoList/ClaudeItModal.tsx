@@ -2,16 +2,17 @@ import { useState, useCallback } from 'react';
 import FolderBrowser from '../FolderBrowser';
 
 const MODEL_OPTIONS = [
-  { value: 'opus', label: 'Opus' },
-  { value: 'sonnet', label: 'Sonnet' },
-  { value: 'haiku', label: 'Haiku' },
+  { value: 'opus', label: 'opus' },
+  { value: 'sonnet', label: 'sonnet' },
+  { value: 'haiku', label: 'haiku' },
 ];
 
 const PERMISSION_OPTIONS = [
-  { value: 'full', label: 'Full (skip all)' },
-  { value: 'default', label: 'Default' },
-  { value: 'plan', label: 'Plan mode' },
-  { value: 'ask', label: 'Ask every time' },
+  { value: 'bypassPermissions', label: 'bypassPermissions' },
+  { value: 'default', label: 'default' },
+  { value: 'plan', label: 'plan' },
+  { value: 'acceptEdits', label: 'acceptEdits' },
+  { value: 'dontAsk', label: 'dontAsk' },
 ];
 
 interface Props {
@@ -25,7 +26,7 @@ export default function ClaudeItModal({ onSelect, onClose }: Props) {
   const [useWorktree, setUseWorktree] = useState(false);
   const [branchName, setBranchName] = useState('');
   const [model, setModel] = useState('opus');
-  const [permissionMode, setPermissionMode] = useState('full');
+  const [permissionMode, setPermissionMode] = useState('bypassPermissions');
 
   const handlePathChange = useCallback((path: string, gitRepo: boolean) => {
     setCurrentPath(path);

@@ -18,79 +18,89 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
 
-// --- Schema ---
+// --- Migrations ---
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS todos (
-    id            TEXT PRIMARY KEY,
-    title         TEXT NOT NULL,
-    description   TEXT,
-    completed     INTEGER NOT NULL DEFAULT 0,
-    priority      TEXT NOT NULL DEFAULT 'medium',
-    sessionId     TEXT,
-    sessionLabel  TEXT,
-    createdAt     TEXT NOT NULL,
-    completedAt   TEXT
-  );
+type Migration = (db: Database.Database) => void;
 
-  CREATE TABLE IF NOT EXISTS cron_tasks (
-    id             TEXT PRIMARY KEY,
-    name           TEXT NOT NULL,
-    cronExpression TEXT NOT NULL,
-    prompt         TEXT NOT NULL,
-    enabled        INTEGER NOT NULL DEFAULT 1,
-    projectPath    TEXT,
-    lastRun        TEXT,
-    nextRun        TEXT,
-    createdAt      TEXT NOT NULL
-  );
+const migrations: Migration[] = [
+  // v0 → v1: baseline (consolidates current schema including all ALTER TABLE columns)
+  (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS todos (
+        id            TEXT PRIMARY KEY,
+        title         TEXT NOT NULL,
+        description   TEXT,
+        completed     INTEGER NOT NULL DEFAULT 0,
+        priority      TEXT NOT NULL DEFAULT 'medium',
+        sessionId     TEXT,
+        sessionLabel  TEXT,
+        createdAt     TEXT NOT NULL,
+        completedAt   TEXT,
+        groupId       TEXT REFERENCES todo_groups(id) ON DELETE SET NULL,
+        position      INTEGER NOT NULL DEFAULT 0
+      );
 
-  CREATE TABLE IF NOT EXISTS cron_executions (
-    id         TEXT PRIMARY KEY,
-    taskId     TEXT NOT NULL REFERENCES cron_tasks(id) ON DELETE CASCADE,
-    startedAt  TEXT NOT NULL,
-    finishedAt TEXT,
-    status     TEXT NOT NULL DEFAULT 'running',
-    output     TEXT,
-    error      TEXT
-  );
+      CREATE TABLE IF NOT EXISTS cron_tasks (
+        id             TEXT PRIMARY KEY,
+        name           TEXT NOT NULL,
+        cronExpression TEXT NOT NULL,
+        prompt         TEXT NOT NULL,
+        enabled        INTEGER NOT NULL DEFAULT 1,
+        projectPath    TEXT,
+        lastRun        TEXT,
+        nextRun        TEXT,
+        createdAt      TEXT NOT NULL
+      );
 
-  CREATE TABLE IF NOT EXISTS managed_sessions (
-    sessionId   TEXT PRIMARY KEY,
-    projectPath TEXT NOT NULL DEFAULT '',
-    displayName TEXT,
-    archived    INTEGER NOT NULL DEFAULT 0,
-    pinned      INTEGER NOT NULL DEFAULT 0,
-    createdAt   TEXT NOT NULL
-  );
+      CREATE TABLE IF NOT EXISTS cron_executions (
+        id         TEXT PRIMARY KEY,
+        taskId     TEXT NOT NULL REFERENCES cron_tasks(id) ON DELETE CASCADE,
+        startedAt  TEXT NOT NULL,
+        finishedAt TEXT,
+        status     TEXT NOT NULL DEFAULT 'running',
+        output     TEXT,
+        error      TEXT,
+        sessionId  TEXT
+      );
 
-  CREATE TABLE IF NOT EXISTS todo_groups (
-    id        TEXT PRIMARY KEY,
-    name      TEXT NOT NULL,
-    position  INTEGER NOT NULL DEFAULT 0,
-    createdAt TEXT NOT NULL
-  );
-`);
+      CREATE TABLE IF NOT EXISTS managed_sessions (
+        sessionId   TEXT PRIMARY KEY,
+        projectPath TEXT NOT NULL DEFAULT '',
+        displayName TEXT,
+        archived    INTEGER NOT NULL DEFAULT 0,
+        pinned      INTEGER NOT NULL DEFAULT 0,
+        createdAt   TEXT NOT NULL
+      );
 
-// --- Indexes ---
-db.exec(`
-  CREATE INDEX IF NOT EXISTS idx_todos_groupId ON todos(groupId);
-  CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed);
-  CREATE INDEX IF NOT EXISTS idx_cron_executions_taskId_startedAt ON cron_executions(taskId, startedAt DESC);
-  CREATE INDEX IF NOT EXISTS idx_managed_sessions_archived ON managed_sessions(archived);
-  CREATE INDEX IF NOT EXISTS idx_managed_sessions_pinned ON managed_sessions(pinned);
-`);
+      CREATE TABLE IF NOT EXISTS todo_groups (
+        id        TEXT PRIMARY KEY,
+        name      TEXT NOT NULL,
+        position  INTEGER NOT NULL DEFAULT 0,
+        createdAt TEXT NOT NULL
+      );
 
-// Idempotent ALTER TABLE helper: only swallow "duplicate column" errors
-function addColumnIfNotExists(sql: string) {
-  try { db.exec(sql); } catch (e: any) {
-    if (!e.message?.includes('duplicate column')) throw e;
+      CREATE INDEX IF NOT EXISTS idx_todos_groupId ON todos(groupId);
+      CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(completed);
+      CREATE INDEX IF NOT EXISTS idx_cron_executions_taskId_startedAt ON cron_executions(taskId, startedAt DESC);
+      CREATE INDEX IF NOT EXISTS idx_managed_sessions_archived ON managed_sessions(archived);
+      CREATE INDEX IF NOT EXISTS idx_managed_sessions_pinned ON managed_sessions(pinned);
+    `);
+  },
+  // Future migrations start here
+];
+
+function runMigrations() {
+  const currentVersion = db.pragma('user_version', { simple: true }) as number;
+  for (let i = currentVersion; i < migrations.length; i++) {
+    db.transaction(() => {
+      migrations[i](db);
+      db.pragma(`user_version = ${i + 1}`);
+    })();
+    console.log(`[db] migration ${i} → ${i + 1} applied`);
   }
 }
 
-addColumnIfNotExists('ALTER TABLE todos ADD COLUMN groupId TEXT REFERENCES todo_groups(id) ON DELETE SET NULL');
-addColumnIfNotExists('ALTER TABLE todos ADD COLUMN position INTEGER NOT NULL DEFAULT 0');
-addColumnIfNotExists('ALTER TABLE cron_executions ADD COLUMN sessionId TEXT');
+runMigrations();
 
 export { db };
 export function closeDb() {
