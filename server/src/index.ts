@@ -24,7 +24,7 @@ try {
 import { eventBus } from './services/eventBus.js';
 import { closeDb } from './services/database.js';
 import { startWitness, stopWitness, witnessEmitter } from './services/witnessService.js';
-import { ensureMayorRunning, stopMayor, sendToMayor } from './services/mayorService.js';
+import { ensureMayorRunning, stopMayor, sendToMayor, isMayorEnabled } from './services/mayorService.js';
 import { updateTask, getTask, getAllTasks } from './services/taskStorage.js';
 import { getAgent } from './services/agentStorage.js';
 import { getSetting, getSettingsObject } from './services/settingsStorage.js';
@@ -203,12 +203,7 @@ server.listen(PORT, () => {
   initScheduler();
   startWitness();
 
-  // Auto-start Mayor on server boot (non-blocking)
-  ensureMayorRunning().then(() => {
-    broadcastEvent({ type: 'notification', level: 'info', title: 'Mayor', message: 'Mayor is online and ready' });
-  }).catch(err => {
-    console.error('[server] Failed to auto-start mayor:', err);
-  });
+  // Mayor is disabled by default — user must start it manually from the dashboard
 
   // Broadcast to all connected /ws/events clients
   function broadcastEvent(event: object) {
@@ -220,8 +215,9 @@ server.listen(PORT, () => {
     }
   }
 
-  // Listen for witness events
+  // Listen for witness events — only restart Mayor if enabled
   witnessEmitter.on('mayorCheck', async (_sessionId: string) => {
+    if (!isMayorEnabled()) return;
     try {
       await ensureMayorRunning();
     } catch (err) {

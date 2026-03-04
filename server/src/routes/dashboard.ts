@@ -8,7 +8,7 @@ import {
   getTasksByAssignee,
 } from '../services/taskStorage.js';
 import { getAllAgents } from '../services/agentStorage.js';
-import { isMayorOnline, ensureMayorRunning, stopMayor, getMayorSessionId, getMayorProjectPath, sendToMayor } from '../services/mayorService.js';
+import { isMayorOnline, isMayorEnabled, setMayorEnabled, ensureMayorRunning, stopMayor, getMayorSessionId, getMayorProjectPath, sendToMayor } from '../services/mayorService.js';
 import { isWitnessRunning, getWitnessLastCheck } from '../services/witnessService.js';
 import { getAllMessages, createMessage, getUnreadCount } from '../services/messageStorage.js';
 
@@ -54,6 +54,7 @@ router.get('/', (_req, res) => {
 // POST /api/dashboard/mayor/start
 router.post('/mayor/start', async (_req, res) => {
   try {
+    setMayorEnabled(true);
     const sessionId = await ensureMayorRunning();
     res.json({ online: true, sessionId });
   } catch (err: any) {
@@ -64,7 +65,7 @@ router.post('/mayor/start', async (_req, res) => {
 
 // POST /api/dashboard/mayor/stop
 router.post('/mayor/stop', (_req, res) => {
-  stopMayor();
+  setMayorEnabled(false);
   res.json({ online: false });
 });
 

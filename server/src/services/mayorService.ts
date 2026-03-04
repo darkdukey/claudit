@@ -17,6 +17,7 @@ let mayorProcess: ClaudeProcess | null = null;
 let mayorSessionId: string | null = null;
 let isCreatingMayor = false;
 let createMayorPromise: Promise<string> | null = null;
+let mayorEnabled = false;
 
 const DATA_DIR = path.join(os.homedir(), '.claudit');
 const MCP_CONFIG_PATH = path.join(DATA_DIR, 'mayor-mcp.json');
@@ -100,6 +101,17 @@ export function isMayorOnline(): boolean {
   return mayorProcess !== null && mayorProcess.isAlive();
 }
 
+export function isMayorEnabled(): boolean {
+  return mayorEnabled;
+}
+
+export function setMayorEnabled(enabled: boolean): void {
+  mayorEnabled = enabled;
+  if (!enabled) {
+    stopMayor();
+  }
+}
+
 /** Find the real project path where the mayor session lives */
 export function getMayorProjectPath(): string {
   if (!mayorSessionId || !fs.existsSync(PROJECTS_DIR)) return os.homedir();
@@ -167,6 +179,10 @@ function createNewMayorSession(): Promise<string> {
 }
 
 export async function ensureMayorRunning(): Promise<string> {
+  if (!mayorEnabled) {
+    throw new Error('Mayor is disabled. Enable it from the dashboard to start.');
+  }
+
   // Already alive — fast path
   if (mayorProcess && mayorProcess.isAlive() && mayorSessionId) {
     return mayorSessionId;
