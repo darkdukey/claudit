@@ -1,6 +1,13 @@
-# Claudit
+```
+   ██████╗██╗      █████╗ ██╗   ██╗██████╗ ██╗████████╗
+  ██╔════╝██║     ██╔══██╗██║   ██║██╔══██╗██║╚══██╔══╝
+  ██║     ██║     ███████║██║   ██║██║  ██║██║   ██║
+  ██║     ██║     ██╔══██║██║   ██║██║  ██║██║   ██║
+  ╚██████╗███████╗██║  ██║╚██████╔╝██████╔╝██║   ██║
+   ╚═════╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚═════╝ ╚═╝   ╚═╝
+```
 
-Web dashboard for managing and interacting with local Claude Code sessions, cron tasks, and todos.
+The simplest Claude Code orchestrator — manage agents, sessions, tasks, and cron jobs from a clean web UI.
 
 ## Install
 
