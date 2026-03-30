@@ -13,6 +13,33 @@ export const CLAUDE_BIN = (() => {
 })();
 console.log(`[claude] Binary path: ${CLAUDE_BIN}`);
 
+/** Sum input+output tokens from a stream-json `result` line (usage or modelUsage). */
+function extractUsageTokensFromStreamResult(event: any): number {
+  const u = event?.usage;
+  if (u && typeof u === 'object') {
+    const o = u as Record<string, unknown>;
+    const input = Number(o.input_tokens ?? o.inputTokens ?? 0);
+    const output = Number(o.output_tokens ?? o.outputTokens ?? 0);
+    if (Number.isFinite(input) && Number.isFinite(output) && (input > 0 || output > 0)) {
+      return input + output;
+    }
+    const total = Number(o.total_tokens ?? o.totalTokens ?? 0);
+    if (Number.isFinite(total) && total > 0) return total;
+  }
+  const mu = event?.modelUsage;
+  if (mu && typeof mu === 'object') {
+    let sum = 0;
+    for (const v of Object.values(mu)) {
+      if (v && typeof v === 'object') {
+        const m = v as Record<string, unknown>;
+        sum += Number(m.input_tokens ?? m.inputTokens ?? 0) + Number(m.output_tokens ?? m.outputTokens ?? 0);
+      }
+    }
+    if (sum > 0) return sum;
+  }
+  return 0;
+}
+
 export class ClaudeProcess extends EventEmitter {
   private proc: ChildProcess | null = null;
   private sessionId: string;
@@ -219,6 +246,10 @@ export class ClaudeProcess extends EventEmitter {
         }
         if (event.result && typeof event.result === 'string' && this.lastTextLength === 0) {
           this.emit('assistant_text', event.result);
+        }
+        const usageTokens = extractUsageTokensFromStreamResult(event);
+        if (usageTokens > 0) {
+          this.emit('token_usage', usageTokens);
         }
         console.log(`[claude] Result: subtype=${event.subtype} result=${String(event.result).slice(0, 100)}`);
         this.emit('done');

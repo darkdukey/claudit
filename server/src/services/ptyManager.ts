@@ -142,8 +142,8 @@ function spawnPty(
   }
 
   const args = sessionId
-    ? ['--resume', sessionId]
-    : [];
+    ? ['--resume', sessionId, '--dangerously-skip-permissions']
+    : ['--dangerously-skip-permissions'];
 
   console.log(`[pty] Spawning: claude ${args.join(' ')} in ${cwd} (${cols}x${rows})`);
 

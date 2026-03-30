@@ -9,6 +9,10 @@ export class CompletionDetector extends EventEmitter {
   private listening = false;
   private taskId: string;
   private taskSessionId: string;
+  /** Defer TASK_* handling until `done` so stream-json `result.usage` is applied first. */
+  private pendingCompleteSummary: string | null = null;
+  private pendingFailureReason: string | null = null;
+  private accumulatedTokens = 0;
 
   constructor(claudeProcess: ClaudeProcess, taskId: string, taskSessionId: string) {
     super();
@@ -22,6 +26,7 @@ export class CompletionDetector extends EventEmitter {
     this.listening = true;
 
     this.claudeProcess.on('assistant_text', this.handleText);
+    this.claudeProcess.on('token_usage', this.handleTokenUsage);
     this.claudeProcess.on('done', this.handleDone);
   }
 
@@ -30,6 +35,7 @@ export class CompletionDetector extends EventEmitter {
     this.listening = false;
 
     this.claudeProcess.off('assistant_text', this.handleText);
+    this.claudeProcess.off('token_usage', this.handleTokenUsage);
     this.claudeProcess.off('done', this.handleDone);
   }
 
@@ -38,9 +44,23 @@ export class CompletionDetector extends EventEmitter {
     this.scanBuffer();
   };
 
+  private handleTokenUsage = (n: number) => {
+    if (typeof n === 'number' && n > 0) this.accumulatedTokens += n;
+  };
+
   private handleDone = () => {
     // Final scan of remaining buffer
     this.scanBuffer();
+    if (this.pendingFailureReason !== null) {
+      const reason = this.pendingFailureReason;
+      this.pendingFailureReason = null;
+      this.pendingCompleteSummary = null;
+      this.handleTaskFailed(reason);
+    } else if (this.pendingCompleteSummary !== null) {
+      const summary = this.pendingCompleteSummary;
+      this.pendingCompleteSummary = null;
+      this.handleTaskComplete(summary);
+    }
     this.textBuffer = '';
   };
 
@@ -54,10 +74,12 @@ export class CompletionDetector extends EventEmitter {
 
       if (trimmed.startsWith('TASK_COMPLETE:')) {
         const summary = trimmed.slice('TASK_COMPLETE:'.length).trim();
-        this.handleTaskComplete(summary);
+        this.pendingFailureReason = null;
+        this.pendingCompleteSummary = summary;
       } else if (trimmed.startsWith('TASK_FAILED:')) {
         const reason = trimmed.slice('TASK_FAILED:'.length).trim();
-        this.handleTaskFailed(reason);
+        this.pendingCompleteSummary = null;
+        this.pendingFailureReason = reason;
       } else if (trimmed.startsWith('CHECKPOINT:')) {
         const description = trimmed.slice('CHECKPOINT:'.length).trim();
         this.handleCheckpoint(description);
@@ -69,11 +91,16 @@ export class CompletionDetector extends EventEmitter {
 
   private handleTaskComplete(summary: string) {
     try {
-      updateTaskSession(this.taskSessionId, { resultSummary: summary });
+      const tokenUsage = this.accumulatedTokens > 0 ? this.accumulatedTokens : undefined;
+      updateTaskSession(this.taskSessionId, {
+        resultSummary: summary,
+        ...(tokenUsage != null ? { tokenUsage } : {}),
+      });
       updateTask(this.taskId, {
         status: 'done',
         resultSummary: summary,
         completedAt: new Date().toISOString(),
+        ...(tokenUsage != null ? { tokenUsage } : {}),
       });
       this.emit('taskComplete', summary);
     } catch (err) {
@@ -83,10 +110,15 @@ export class CompletionDetector extends EventEmitter {
 
   private handleTaskFailed(reason: string) {
     try {
+      const tokenUsage = this.accumulatedTokens > 0 ? this.accumulatedTokens : undefined;
+      updateTaskSession(this.taskSessionId, {
+        ...(tokenUsage != null ? { tokenUsage } : {}),
+      });
       updateTask(this.taskId, {
         status: 'failed',
         errorMessage: reason,
         completedAt: new Date().toISOString(),
+        ...(tokenUsage != null ? { tokenUsage } : {}),
       });
       this.emit('taskFailed', reason);
     } catch (err) {
